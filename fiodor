@@ -4,8 +4,9 @@
 #
 # File:        fiodor
 # Description: driver for collecting read and write performance figures
-#              to be used as input to a SimGrid hardware description via
-#              multiple execution of 'fio' while varying some parameters.
+#              to be used as input to a SimGrid hardware description.
+#              To collect the data, fiodor invokes 'fio' several times while
+#              varying some parameters such as the file size and the block size.
 # Author:      Fabio Hernandez
 #              IN2P3 / CNRS computing center
 #              (based on an original version by Pierre Veyre)
