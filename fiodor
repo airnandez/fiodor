@@ -1,0 +1,204 @@
+#!/bin/bash
+
+##############################################################################
+#
+# File:        fiodor
+# Description: driver for collecting read and write performance figures
+#              to be used as input to a SimGrid hardware description via
+#              multiple execution of 'fio' while varying some parameters.
+# Author:      Fabio Hernandez
+#              IN2P3 / CNRS computing center
+#              (based on an original version by Pierre Veyre)
+# Source:      https://github.com/airnandez/fiodor
+#
+##############################################################################
+
+
+function init {
+    # Program name
+    program_name=${0##*/}
+
+    # Return code
+    ret_code=0
+
+    # Block sizes (KiB)
+    block_sizes=(4 32 256 512 1024)
+
+    # File sizes range (MiB)
+    file_size_range=(1 1000)
+
+    # Default number of files to read/write
+    num_files_default=10
+
+    # Default target director
+    target_dir_default=${PWD}
+
+    # Constants
+    KiB=1024
+    MiB=$(($KiB * $KiB))
+}
+
+function usage {
+    echo -e "\nUsage:" ${program_name} "(read|write)  [-n <num files>]  [–d <dir>]\n"
+    echo -e "where:\n"
+    echo -e "  -n <num files>: number of files to read or write [default: ${num_files_default}]"
+    echo -e "  -d <dir>:       directory where 'fio' will read or write [default: ${target_dir_default}]"
+    echo -e "\nDocumentation:"
+    echo -e "   https://github.com/airnandez/fiodor"
+    exit 1
+}
+
+function print_error {
+    echo ${program_name}": [ERROR]" $@
+}
+
+##############################################################################
+# parse_fio_output parses a line emitted by fio in terse format and extracts
+# the relevant fiels. Returns a string ready to be sent to the output .csv
+# file
+##############################################################################
+function parse_fio_output {
+    operation=$1; shift
+    fsize=$1; shift
+    blksize=$1; shift
+    terse=$@
+    # Parse the output of fio in terse format.
+    # Details: http://amarao-san.livejournal.com/2578383.html?thread=15903695
+    if [ "${operation}" = "read" ]; then
+        # $7: bandwidth [KiB/s]
+        # $8: iops: $8
+        # $9: runtime [ms]
+        out=`echo $terse | awk -F ';' '{printf "%s,%s,%s", $7, $9, $8}'`
+    else
+        # $48: bandwidth [KiB/s]
+        # $49: iops: $8
+        # $50: runtime [ms]
+        out=`echo $terse | awk -F ';' '{printf "%s,%s,%s", $48, $50, $49}'`
+    fi
+    echo "${operation},${fsize},${blksize},${out}"
+}
+
+##############################################################################
+# abs_dir_pathr returns the absolute path of the directory passed as argument
+##############################################################################
+function abs_dir_path {
+    if [ -d "$1" ]; then
+        echo "$(cd $1 && pwd)"
+    else
+        echo ""
+    fi
+}
+
+function clean_up {
+    dir=$1
+    job=$2
+    if [ ${dir} != "" -a ${job} != "" ]; then
+        rm -f ${dir}/${job}.*
+    fi
+}
+
+
+##############################################################################
+# MAIN
+##############################################################################
+init
+
+# Check command line arguments
+if [ $# -lt 1 ]; then
+    usage
+fi
+
+# Parse operation type
+operation=$1
+shift
+if [ "$operation" != "read"  -a  "$operation" != "write" ]; then
+    print_error "invalid operation \"$operation\" (expecting \"read\" or \"write\")"
+    usage
+fi
+
+# Parse optional arguments
+num_files=$num_files_default
+target_dir=$target_dir_default
+while getopts ":n:d:" o; do
+    case "${o}" in
+        n)
+            num_files=${OPTARG}
+            ;;
+        d)
+            target_dir=${OPTARG}
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+# Validate number of files
+re='^[0-9]+$'
+if ! [[ $num_files =~ $re ]] ; then
+    print_error "invalid number of files \"$num_files\""
+    usage
+fi
+
+# Validate target directory
+target_dir=$(abs_dir_path $target_dir)
+if [ -z ${target_dir} ]; then
+    print_error "invalid directory \"$target_dir\""
+    usage
+fi
+fs_type=$(df -P -T ${target_dir} | sed -n '2p' | awk '{print $2}')
+
+# Create output file
+host=$(hostname -s)
+today=$(date +%Y-%m-%d)
+output_file="./${today}_${host}_${fs_type}_${operation}.csv"
+header="# hostname,fstype,operation,filesize_MiB,blksize_KiB,bandwidth_KiBps,runtime_ms,iops"
+echo ${header} > ${output_file}
+
+# Loop over the number of files
+num_blocksizes=$((${#block_sizes[@]}-1))
+job_name=$(basename `mktemp --tmpdir=. -u tmp.fio.XXXXXXXXXX`)
+for i in $(seq 1 $num_files); do
+    # Clean
+    clean_up ${target_dir} ${job_name}
+
+    # Randomly select block size for this file
+    idx=`shuf -i 0-${num_blocksizes} -n 1`
+    blksize=${block_sizes[$idx]}
+
+    # Randomly select size for this file
+    fsize=`shuf -i ${file_size_range[0]}-${file_size_range[1]} -n 1`
+
+    # Show some activity
+    printf "%3d:  %4dk  %4dM\n" $i $blksize $fsize
+
+    # Build and execute fio command
+    cmd="fio --name=${job_name} \
+             --directory=${target_dir} \
+             --ioengine=sync \
+             --numjobs=1 \
+             --fsync_on_close=1 \
+             --minimal \
+             --iodepth=1 \
+             --rw=${operation} --bs=${blksize}k --size=${fsize}M"
+    output=`$cmd`
+    if [ $? != 0 ]; then
+        print_error "fio returned error. Abnormal end."
+        ret_code=2
+        break
+    fi
+
+    # Parse fio result
+    res=$(parse_fio_output ${operation} ${fsize} ${blksize} ${output})
+
+    # Store this result
+    echo ${host}","${fs_type}","${res} >> ${output_file}
+done
+
+# Clean up
+clean_up ${target_dir} ${job_name}
+
+# Done
+exit $ret_code
+
