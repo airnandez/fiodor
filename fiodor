@@ -144,12 +144,12 @@ if ! [[ $num_files =~ $re ]] ; then
 fi
 
 # Validate target directory
-target_dir=$(abs_dir_path $target_dir)
-if [ -z ${target_dir} ]; then
+target_dir_abs=$(abs_dir_path $target_dir)
+if [ -z ${target_dir_abs} ]; then
     print_error "invalid directory \"$target_dir\""
     usage
 fi
-fs_type=$(df -P -T ${target_dir} | sed -n '2p' | awk '{print $2}')
+fs_type=$(df -P -T ${target_dir_abs} | sed -n '2p' | awk '{print $2}')
 
 # Create output file
 host=$(hostname -s)
@@ -164,7 +164,7 @@ num_filesizes=$((${#file_sizes[@]}-1))
 job_name=$(basename `mktemp --tmpdir=. -u tmp.fio.XXXXXXXXXX`)
 for i in $(seq 1 $num_files); do
     # Clean
-    clean_up ${target_dir} ${job_name}
+    clean_up ${target_dir_abs} ${job_name}
 
     # Randomly select block size for this file
     idx=`shuf -i 0-${num_blocksizes} -n 1`
@@ -179,7 +179,7 @@ for i in $(seq 1 $num_files); do
 
     # Build and execute fio command
     cmd="fio --name=${job_name} \
-             --directory=${target_dir} \
+             --directory=${target_dir_abs} \
              --ioengine=sync \
              --numjobs=1 \
              --fsync_on_close=1 \
@@ -202,7 +202,7 @@ for i in $(seq 1 $num_files); do
 done
 
 # Clean up
-clean_up ${target_dir} ${job_name}
+clean_up ${target_dir_abs} ${job_name}
 
 # Done
 exit $ret_code
