@@ -31,7 +31,7 @@ For instance, the command:
 $ fiodor read  -d /tmp  -n 50
 ```
 
-will configure `fio` to repeatedly (50 times in this case) write files in `/tmp` and read them back while collecting figures on `read` performance. The size of each file is ramdomly selected in the range 10MB to 1GB. The block size used for reading each individual file is also randomly selected among the values in the set { 4KB, 32KB, 256KB, 512KB, 1024KB }.
+will configure `fio` to repeatedly (50 times in this case) write files in `/tmp` and read them back while collecting figures on `read` performance. The size of each file is ramdomly selected among the values in the set {1MB, 10MB, 50MB, 100MB, 250MB, 500MB, 1000MB, 2000MB}. The block size used for reading each individual file is also randomly selected among the values in the set {4KB, 32KB, 256KB, 512KB, 1024KB, 4096KB}.
 
 The collected I/O performance data is written to a file in CSV format in the current working directory. The output file contains a header with the meaning of each field on each record and one line per file, for instance:
 
