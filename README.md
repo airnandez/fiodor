@@ -33,13 +33,13 @@ $ fiodor read  -d /tmp  -n 50
 
 will configure `fio` to repeatedly (50 times in this case) write files in `/tmp` and read them back while collecting figures on `read` performance. The size of each file is ramdomly selected among the values in the set {1MB, 10MB, 50MB, 100MB, 250MB, 500MB, 1000MB, 2000MB}. The block size used for reading each individual file is also randomly selected among the values in the set {4KB, 32KB, 256KB, 512KB, 1024KB, 4096KB}.
 
-The collected I/O performance data is written to a file in CSV format in the current working directory. The output file contains a header with the meaning of each field on each record and one line per file, for instance:
+The collected I/O performance data is written to a file in CSV format in the current working directory with a record per line. The first line of the output file contains a header with the meaning of each field, for instance:
 
 ```
-# hostname,fstype,operation,filesize_MiB,blksize_KiB,bandwidth_KiBps,runtime_ms,iops
-myhost,ext3,read,335,512,216020,1588,421
-myhost,ext3,read,493,512,1045200,483,2041
-myhost,ext3,read,600,32,984615,624,30769
+# timestamp,hostname,fstype,operation,filesize_MiB,blksize_KiB,bandwidth_KiBps,runtime_ms,iops
+2015-10-08T12:41:56.212668525Z,myhost,ext4,read,500,256,154776,3308,604
+2015-10-08T12:41:57.370157574Z,myhost,ext4,read,50,4096,209157,235,51
+2015-10-08T12:43:07.045392614Z,myhost,ext4,read,1000,4,38251,26770,9562
 ```
 
 Analogously, to collect data on `write` performance, use:

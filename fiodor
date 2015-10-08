@@ -155,8 +155,11 @@ fs_type=$(df -P -T ${target_dir_abs} | sed -n '2p' | awk '{print $2}')
 host=$(hostname -s)
 today=$(date +%Y-%m-%d)
 output_file="./${today}_${host}_${fs_type}_${operation}.csv"
-header="# hostname,fstype,operation,filesize_MiB,blksize_KiB,bandwidth_KiBps,runtime_ms,iops"
-echo ${header} > ${output_file}
+if [ ! -s ${output_file} ]; then
+    # Output file does not exist or is empty so write header
+    header="# timestamp,hostname,fstype,operation,filesize_MiB,blksize_KiB,bandwidth_KiBps,runtime_ms,iops"
+    echo ${header} > ${output_file}
+fi
 
 # Loop over the number of files
 num_blocksizes=$((${#block_sizes[@]}-1))
@@ -198,7 +201,8 @@ for i in $(seq 1 $num_files); do
     res=$(parse_fio_output ${operation} ${fsize} ${blksize} ${output})
 
     # Store this result
-    echo ${host}","${fs_type}","${res} >> ${output_file}
+    tstamp=`date -u +"%Y-%m-%dT%H:%M:%S.%NZ"`  # UTC, RFC3339
+    echo ${tstamp}","${host}","${fs_type}","${res} >> ${output_file}
 done
 
 # Clean up
