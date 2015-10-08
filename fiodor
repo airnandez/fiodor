@@ -26,7 +26,7 @@ function init {
     block_sizes=(4 32 256 512 1024 4096)
 
     # File sizes set (MiB)
-    file_sizes=(1 10 50 100 250 500 1000 2000)
+    file_sizes=(2 10 50 100 250 500 1000 2000)
 
     # Default number of files to read/write
     num_files_default=10
